@@ -1,19 +1,12 @@
-# Publishes @cantoo/pdf-lib via npm Trusted Publishing (OIDC).
-# No NPM_TOKEN required — configure the Trusted Publisher on npmjs.com to:
-#   Organization/user: cantoo-scribe
-#   Repository:        pdf-lib
-#   Workflow filename: publish.yml
-#   Allowed actions:   include "npm publish" (direct publish)
-#
-# Docs: https://docs.npmjs.com/trusted-publishers
-
 name: Publish
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version eCervo approuvée à publier'
+        required: true
+        type: string
 
 permissions:
   id-token: write # required for OIDC → npm
@@ -26,6 +19,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Vérifier le paquet et le tag approuvés
+        env:
+          APPROVED_VERSION: ${{ inputs.version }}
+        run: |
+          node -e 'const p = require("./package.json"); if (p.name !== "@ecervo/pdf-lib" || p.version !== process.env.APPROVED_VERSION || process.env.GITHUB_REF !== "refs/tags/v" + p.version) process.exit(1)'
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -53,15 +52,5 @@ jobs:
       - name: Build
         run: yarn build
 
-      - name: Publish @cantoo/pdf-lib
-        # Do NOT set NODE_AUTH_TOKEN here — that would bypass OIDC.
-        # Provenance attestations are generated automatically with Trusted Publishing.
-        run: npm publish --access public
-
-      - name: Publish @cantoo/upng
-        working-directory: src/packages/upng
-        run: npm publish --access public
-
-      - name: Publish @cantoo/standard-fonts
-        working-directory: src/packages/standard-fonts
+      - name: Publier @ecervo/pdf-lib
         run: npm publish --access public
